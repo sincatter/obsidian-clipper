@@ -1,8 +1,9 @@
 import dayjs from 'dayjs';
-import { Template, Property, PromptVariable } from '../types/types';
+import { Template, Property, PromptVariable, ImageDownloadSettings } from '../types/types';
 import { incrementStat, addHistoryEntry, getClipHistory } from '../utils/storage-utils';
 import { generateFrontmatter, saveToObsidian } from '../utils/obsidian-note-creator';
-import { extractPageContent, initializePageContent } from '../utils/content-extractor';
+import { extractPageContent, initializePageContent, DownloadedImage } from '../utils/content-extractor';
+import { ApiConfig } from '../utils/image-downloader';
 import { compileTemplate } from '../utils/template-compiler';
 import { initializeIcons, getPropertyTypeIcon } from '../icons/icons';
 import { findMatchingTemplate, initializeTriggers } from '../utils/triggers';
@@ -570,6 +571,57 @@ function showError(messageKey: string): void {
 		document.body.classList.add('has-error');
 	}
 }
+
+/**
+ * 显示右上角通知
+ */
+function showNotification(message: string, type: 'success' | 'error' = 'success'): void {
+	// 创建通知元素
+	const notification = document.createElement('div');
+	notification.className = `clip-notification ${type}`;
+	notification.textContent = message;
+
+	// 设置样式
+	notification.style.cssText = `
+		position: fixed;
+		top: 20px;
+		right: 20px;
+		padding: 12px 20px;
+		background: ${type === 'success' ? '#4caf50' : '#f44336'};
+		color: white;
+		border-radius: 4px;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+		z-index: 10000;
+		font-size: 14px;
+		animation: slideIn 0.3s ease-out;
+	`;
+
+	// 添加动画样式
+	const style = document.createElement('style');
+	style.textContent = `
+		@keyframes slideIn {
+			from { transform: translateX(100%); opacity: 0; }
+			to { transform: translateX(0); opacity: 1; }
+		}
+		@keyframes slideOut {
+			from { transform: translateX(0); opacity: 1; }
+			to { transform: translateX(100%); opacity: 0; }
+		}
+	`;
+	document.head.appendChild(style);
+
+	document.body.appendChild(notification);
+
+	// 3 秒后移除通知
+	setTimeout(() => {
+		notification.style.animation = 'slideOut 0.3s ease-out';
+		setTimeout(() => {
+			notification.remove();
+			style.remove();
+		}, 300);
+	}, 3000);
+}
+
 function clearError(): void {
 	const errorMessage = document.querySelector('.error-message') as HTMLElement;
 	const clipper = document.querySelector('.clipper') as HTMLElement;
@@ -580,6 +632,18 @@ function clearError(): void {
 
 		document.body.classList.remove('has-error');
 	}
+}
+
+function getDisplayErrorMessage(error: unknown): string {
+	if (error instanceof Error && error.message.trim()) {
+		return error.message;
+	}
+
+	if (typeof error === 'string' && error.trim()) {
+		return error;
+	}
+
+	return getMessage('failedToSaveFile');
 }
 
 function logError(message: string, error?: any): void {
@@ -667,10 +731,15 @@ async function refreshFields(tabId: number, checkTemplateTriggers: boolean = tru
 				extractedData.site,
 				extractedData.wordCount,
 				extractedData.language || '',
-				extractedData.metaTags
+				extractedData.metaTags,
+				currentTemplate?.imageDownload
 			);
 			if (initializedContent) {
 				currentVariables = initializedContent.currentVariables;
+				// Store downloaded images for later use when saving
+				if (initializedContent.downloadedImages) {
+					(window as any).__downloadedImages__ = initializedContent.downloadedImages;
+				}
 				console.log('Updated currentVariables:', currentVariables);
 				await fillTemplateFieldValues(
 					tabId,
@@ -1240,6 +1309,14 @@ function determineMainAction() {
 			addSecondaryAction(secondaryActions, 'addToObsidian', () => handleClipObsidian());
 			addSecondaryAction(secondaryActions, 'copyToClipboard', copyContent);
 			break;
+		case 'saveSilently':
+			mainButton.textContent = getMessage('saveSilently');
+			mainButton.onclick = () => handleSaveSilently();
+			// Add direct actions to secondary
+			addSecondaryAction(secondaryActions, 'addToObsidian', () => handleClipObsidian());
+			addSecondaryAction(secondaryActions, 'copyToClipboard', copyContent);
+			addSecondaryAction(secondaryActions, 'saveFile', handleSaveToDownloads);
+			break;
 		default: // 'addToObsidian'
 			mainButton.textContent = getMessage('addToObsidian');
 			mainButton.onclick = () => handleClipObsidian();
@@ -1293,7 +1370,17 @@ async function handleClipObsidian(): Promise<void> {
 		const noteName = isDailyNote ? '' : noteNameField?.value || '';
 		const path = isDailyNote ? '' : pathField?.value || '';
 
-		await saveToObsidian(fileContent, noteName, path, selectedVault, currentTemplate.behavior);
+		// Get downloaded images if available
+		const downloadedImages = (window as any).__downloadedImages__ as DownloadedImage[] | undefined;
+
+		// Build API config from template settings
+		const apiConfig: ApiConfig = {
+			baseUrl: currentTemplate?.imageDownload?.apiBaseUrl || 'https://localhost:27124',
+			authToken: currentTemplate?.imageDownload?.apiAuthToken || ''
+		};
+		const attachmentFolder = currentTemplate?.imageDownload?.attachmentFolder || 'attachments';
+
+		await saveToObsidian(fileContent, noteName, path, selectedVault, currentTemplate.behavior, downloadedImages, apiConfig, attachmentFolder);
 		const tabInfo = await getCurrentTabInfo();
 		await incrementStat('addToObsidian', selectedVault, path, tabInfo.url, tabInfo.title);
 
@@ -1307,7 +1394,85 @@ async function handleClipObsidian(): Promise<void> {
 		}
 	} catch (error) {
 		console.error('Error in handleClipObsidian:', error);
-		showError('failedToSaveFile');
+		showNotification(getDisplayErrorMessage(error), 'error');
+		throw error;
+	}
+}
+
+/**
+ * 静默保存到 Obsidian，不关闭 popup，显示成功通知
+ */
+async function handleSaveSilently(): Promise<void> {
+	if (!currentTemplate) return;
+
+	const vaultDropdown = document.getElementById('vault-select') as HTMLSelectElement;
+	const noteContentField = document.getElementById('note-content-field') as HTMLTextAreaElement;
+	const noteNameField = document.getElementById('note-name-field') as HTMLInputElement;
+	const pathField = document.getElementById('path-name-field') as HTMLInputElement;
+	const interpretBtn = document.getElementById('interpret-btn') as HTMLButtonElement;
+
+	if (!vaultDropdown || !noteContentField) {
+		showError('Some required fields are missing. Please try reloading the extension.');
+		return;
+	}
+
+	try {
+		// 处理 interpreter（如果需要）
+		if (generalSettings.interpreterEnabled && interpretBtn && collectPromptVariables(currentTemplate).length > 0) {
+			if (interpretBtn.classList.contains('processing')) {
+				await waitForInterpreter(interpretBtn);
+			} else if (!interpretBtn.classList.contains('done')) {
+				interpretBtn.click();
+				await waitForInterpreter(interpretBtn);
+			}
+		}
+
+		// 收集内容
+		const properties = Array.from(document.querySelectorAll('.metadata-property input')).map(input => {
+			const inputElement = input as HTMLInputElement;
+			return {
+				id: inputElement.dataset.id || Date.now().toString() + Math.random().toString(36).slice(2, 11),
+				name: inputElement.id,
+				value: inputElement.type === 'checkbox' ? inputElement.checked : inputElement.value
+			};
+		}) as Property[];
+
+		const frontmatter = await generateFrontmatter(properties);
+		const fileContent = frontmatter + noteContentField.value;
+
+		// 保存到 Obsidian
+		const selectedVault = currentTemplate.vault || vaultDropdown.value;
+		const isDailyNote = currentTemplate.behavior === 'append-daily' || currentTemplate.behavior === 'prepend-daily';
+		const noteName = isDailyNote ? '' : noteNameField?.value || '';
+		const path = isDailyNote ? '' : pathField?.value || '';
+
+		// 获取下载的图片（如果有）
+		const downloadedImages = (window as any).__downloadedImages__ as DownloadedImage[] | undefined;
+
+		// 构建 API 配置
+		const apiConfig: ApiConfig = {
+			baseUrl: currentTemplate?.imageDownload?.apiBaseUrl || 'https://localhost:27124',
+			authToken: currentTemplate?.imageDownload?.apiAuthToken || ''
+		};
+		const attachmentFolder = currentTemplate?.imageDownload?.attachmentFolder || 'attachments';
+
+		await saveToObsidian(fileContent, noteName, path, selectedVault, currentTemplate.behavior, downloadedImages, apiConfig, attachmentFolder, true);
+		const tabInfo = await getCurrentTabInfo();
+		await incrementStat('saveSilently', selectedVault, path, tabInfo.url, tabInfo.title);
+
+		if (!currentTemplate.vault) {
+			lastSelectedVault = selectedVault;
+			await setLocalStorage('lastSelectedVault', lastSelectedVault);
+		}
+
+		// 显示成功通知
+		showNotification(getMessage('noteSaved') || '笔记已保存！', 'success');
+
+		// 静默保存后关闭 popup
+		setTimeout(() => window.close(), 500);
+	} catch (error) {
+		console.error('Error in handleSaveSilently:', error);
+		showNotification(getDisplayErrorMessage(error), 'error');
 		throw error;
 	}
 }
@@ -1344,6 +1509,7 @@ function getActionIcon(actionType: string): string {
 		case 'copyToClipboard': return 'copy';
 		case 'saveFile': return 'file-down';
 		case 'addToObsidian': return 'pen-line';
+		case 'saveSilently': return 'cloud-check';
 		default: return 'plus';
 	}
 }

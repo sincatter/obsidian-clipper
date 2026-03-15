@@ -4,6 +4,43 @@ import { Template, Property } from '../types/types';
 import { generalSettings, incrementStat } from './storage-utils';
 import { copyToClipboard } from './clipboard-utils';
 import { getMessage } from './i18n';
+import { DownloadedImage, saveImagesToObsidianVault, checkObsidianApiAvailable, ApiConfig, saveNoteToObsidianVault } from './image-downloader';
+import dayjs from 'dayjs';
+
+async function persistDownloadedImages(
+	downloadedImages: DownloadedImage[] | undefined,
+	apiConfig: ApiConfig | undefined,
+	attachmentFolder: string | undefined
+): Promise<void> {
+	if (!downloadedImages || downloadedImages.length === 0) {
+		return;
+	}
+
+	const config: ApiConfig = apiConfig || {
+		baseUrl: 'https://localhost:27124',
+		authToken: ''
+	};
+
+	const apiAvailable = await checkObsidianApiAvailable(config);
+	if (!apiAvailable) {
+		throw new Error('obsidian-local-rest-api is unavailable');
+	}
+
+	const folder = attachmentFolder || 'attachments';
+	const results = await saveImagesToObsidianVault(downloadedImages, folder, config);
+	const failedResults = results.filter(result => !result.success);
+
+	if (failedResults.length > 0) {
+		const failedPaths = failedResults.map(result => result.path).join(', ');
+		throw new Error(`Failed to save downloaded images: ${failedPaths}`);
+	}
+}
+
+function ensureApiAuthToken(apiConfig?: ApiConfig): void {
+	if (!apiConfig?.authToken?.trim()) {
+		throw new Error('Obsidian Local REST API auth token is required for background save');
+	}
+}
 
 export async function generateFrontmatter(properties: Property[]): Promise<string> {
 	let frontmatter = '---\n';
@@ -102,6 +139,10 @@ export async function saveToObsidian(
 	path: string,
 	vault: string,
 	behavior: Template['behavior'],
+	downloadedImages?: DownloadedImage[],
+	apiConfig?: ApiConfig,
+	attachmentFolder?: string,
+	silentSave?: boolean
 ): Promise<void> {
 	let obsidianUrl: string;
 
@@ -135,10 +176,92 @@ export async function saveToObsidian(
 		obsidianUrl += '&silent=true';
 	}
 
+	// 如果是静默保存，使用 obsidian-local-rest-api 直接保存
+	if (silentSave) {
+		console.log('静默保存模式，使用 REST API 保存');
+		console.log('downloadedImages:', downloadedImages ? downloadedImages.length : 'undefined');
+		console.log('apiConfig:', apiConfig);
+		console.log('attachmentFolder:', attachmentFolder);
+
+		// 构建 API 配置
+		const config: ApiConfig = apiConfig || {
+			baseUrl: 'https://localhost:27124',
+			authToken: ''
+		};
+		ensureApiAuthToken(config);
+
+		// 检查 API 是否可用
+		const apiAvailable = await checkObsidianApiAvailable(config);
+		console.log('obsidian-local-rest-api 可用性:', apiAvailable ? '可用' : '不可用');
+
+		if (apiAvailable) {
+			await persistDownloadedImages(downloadedImages, config, attachmentFolder);
+
+			// 确定保存行为
+			let saveBehavior: 'append' | 'prepend' | 'overwrite' | undefined;
+			if (behavior.startsWith('append')) {
+				saveBehavior = 'append';
+			} else if (behavior.startsWith('prepend')) {
+				saveBehavior = 'prepend';
+			} else if (behavior === 'overwrite' || behavior === 'append-daily' || behavior === 'prepend-daily') {
+				saveBehavior = 'overwrite';
+			}
+
+			// 构建文件路径
+			const formattedNoteName = sanitizeFileName(noteName);
+			// 确保路径以斜杠结尾
+			const safePath = path && !path.endsWith('/') ? `${path}/` : (path || '');
+
+			// 每日笔记模式：使用每日笔记文件名格式
+			if (isDailyNote) {
+				// 对于每日笔记，使用日期格式作为文件名
+				// 用户可以通过在模板的 path 字段中设置 "Daily Notes/" 来指定目录
+				const dailyNoteName = dayjs().format('YYYY-MM-DD');
+				const filePath = `${safePath}${dailyNoteName}.md`;
+
+				// 保存笔记
+				const result = await saveNoteToObsidianVault(fileContent, filePath, config, saveBehavior);
+
+				if (!result.success) {
+					console.error('保存每日笔记失败:', result.error);
+					throw new Error(`保存每日笔记失败：${result.error}`);
+				}
+			} else {
+				const filePath = `${safePath}${formattedNoteName}.md`;
+
+				// 保存笔记
+				const result = await saveNoteToObsidianVault(fileContent, filePath, config, saveBehavior);
+
+				if (!result.success) {
+					console.error('保存笔记失败:', result.error);
+					throw new Error(`保存笔记失败：${result.error}`);
+				}
+			}
+
+			console.log('静默保存成功');
+			return;
+		} else {
+			throw new Error('Unable to authenticate with obsidian-local-rest-api');
+		}
+	}
+
+	if (downloadedImages && downloadedImages.length > 0) {
+		ensureApiAuthToken(apiConfig);
+	}
+	await persistDownloadedImages(downloadedImages, apiConfig, attachmentFolder);
+
+	// 构建完整的笔记内容 URL
 	if (generalSettings.legacyMode) {
 		// Use the URI method
 		obsidianUrl += `&content=${encodeURIComponent(fileContent)}`;
 		console.log('Obsidian URL:', obsidianUrl);
+	} else {
+		// Add clipboard flag for clipboard-based save
+		obsidianUrl += `&clipboard&content=${encodeURIComponent(getMessage('clipboardError', 'https://help.obsidian.md/web-clipper/troubleshoot'))}`;
+		console.log('Obsidian URL (clipboard):', obsidianUrl);
+	}
+
+	if (generalSettings.legacyMode) {
 		openObsidianUrl(obsidianUrl);
 	} else {
 		// Try to copy to clipboard with fallback mechanisms

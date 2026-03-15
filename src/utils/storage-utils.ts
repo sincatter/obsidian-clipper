@@ -1,9 +1,9 @@
 import browser from './browser-polyfill';
-import { Settings, ModelConfig, PropertyType, HistoryEntry, Provider, Rating } from '../types/types';
+import { Settings, ModelConfig, PropertyType, HistoryEntry, Provider, Rating, ImageDownloadSettings } from '../types/types';
 import { debugLog } from './debug';
 import { copyToClipboard } from 'core/popup';
 
-export type { Settings, ModelConfig, PropertyType, HistoryEntry, Provider, Rating };
+export type { Settings, ModelConfig, PropertyType, HistoryEntry, Provider, Rating, ImageDownloadSettings };
 
 export let generalSettings: Settings = {
 	vaults: [],
@@ -31,6 +31,7 @@ export let generalSettings: Settings = {
 	},
 	stats: {
 		addToObsidian: 0,
+		saveSilently: 0,
 		saveFile: 0,
 		copyToClipboard: 0,
 		share: 0
@@ -55,7 +56,7 @@ interface StorageData {
 		legacyMode?: boolean;
 		silentOpen?: boolean;
 		openBehavior?: boolean | 'popup' | 'embedded';
-		saveBehavior?: 'addToObsidian' | 'copyToClipboard' | 'saveFile';
+		saveBehavior?: 'addToObsidian' | 'copyToClipboard' | 'saveFile' | 'saveSilently';
 	};
 	vaults?: string[];
 	highlighter_settings?: {
@@ -81,6 +82,7 @@ interface StorageData {
 	property_types?: PropertyType[];
 	stats?: {
 		addToObsidian: number;
+		saveSilently?: number;
 		saveFile: number;
 		copyToClipboard: number;
 		share: number;
@@ -123,6 +125,7 @@ export async function loadSettings(): Promise<Settings> {
 		},
 		stats: {
 			addToObsidian: 0,
+			saveSilently: 0,
 			saveFile: 0,
 			copyToClipboard: 0,
 			share: 0
@@ -173,7 +176,13 @@ export async function loadSettings(): Promise<Settings> {
 			theme: data.reader_settings?.theme as 'default' | 'flexoki' ?? defaultSettings.readerSettings.theme,
 			themeMode: data.reader_settings?.themeMode as 'auto' | 'light' | 'dark' ?? defaultSettings.readerSettings.themeMode
 		},
-		stats: data.stats || defaultSettings.stats,
+		stats: {
+			addToObsidian: data.stats?.addToObsidian ?? defaultSettings.stats.addToObsidian,
+			saveSilently: data.stats?.saveSilently ?? defaultSettings.stats.saveSilently,
+			saveFile: data.stats?.saveFile ?? defaultSettings.stats.saveFile,
+			copyToClipboard: data.stats?.copyToClipboard ?? defaultSettings.stats.copyToClipboard,
+			share: data.stats?.share ?? defaultSettings.stats.share
+		},
 		history: data.history || defaultSettings.history,
 		ratings: data.ratings || defaultSettings.ratings,
 		saveBehavior: data.general_settings?.saveBehavior ?? defaultSettings.saveBehavior

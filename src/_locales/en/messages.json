@@ -114,6 +114,9 @@
 	"close": {
 		"message": "Close"
 	},
+	"clippingsPlaceholder": {
+		"message": "Clippings"
+	},
 	"commandOpenClipper": {
 		"message": "Open Obsidian Clipper"
 	},
@@ -208,6 +211,9 @@
 	},
 	"embedded": {
 		"message": "Embedded"
+	},
+	"embeddedMode": {
+		"message": "Close embedded mode"
 	},
 	"enableHighlighter": {
 		"message": "Enable highlighter"
@@ -502,6 +508,9 @@
 	"noteNameFormat": {
 		"message": "Note name"
 	},
+	"noteSaved": {
+		"message": "Note saved!"
+	},
 	"noteNameFormatDescription": {
 		"message": "Format for the file name of the note. You can use variables like {{title}}, {{date}}, and {{published}} to pre-populate data from the page. $link_start$Learn more$link_end$.",
 		"placeholders": {
@@ -708,6 +717,9 @@
 	"saveFile": {
 		"message": "Save file..."
 	},
+	"saveSilently": {
+		"message": "Save silently in background"
+	},
 	"searchVariables": {
 		"message": "Search variables..."
 	},
@@ -849,5 +861,98 @@
 	},
 	"version": {
 		"message": "Version"
+	},
+	"attachmentSettings": {
+		"message": "Attachment settings"
+	},
+	"enableImageDownload": {
+		"message": "Download images"
+	},
+	"enableImageDownloadDescription": {
+		"message": "Download images from web pages and save them locally. Images will be embedded using Obsidian's internal link format."
+	},
+	"attachmentFolder": {
+		"message": "Attachment folder"
+	},
+	"attachmentFolderDescription": {
+		"message": "The folder where images will be saved. Supports variables like {note}."
+	},
+	"fileNameFormat": {
+		"message": "File name format"
+	},
+	"fileNameFormatDescription": {
+		"message": "Format for image file names. Available placeholders: {note}, {index}, {timestamp}, {date}"
+	},
+	"maxImages": {
+		"message": "Maximum images"
+	},
+	"maxImagesDescription": {
+		"message": "Limit the number of images downloaded per page to avoid excessive downloads."
+	},
+	"minImageSize": {
+		"message": "Minimum image size"
+	},
+	"minImageSizeDescription": {
+		"message": "Filter out images smaller than this size (in pixels) to exclude icons and tracking pixels."
+	},
+	"obsidianApiSettings": {
+		"message": "Obsidian Local REST API"
+	},
+	"obsidianApiDescription": {
+		"message": "Save images directly to your Obsidian vault using the <a href=\"https://github.com/coddingtonbear/obsidian-local-rest-api\" target=\"_blank\">obsidian-local-rest-api</a> plugin. Make sure the plugin is installed and enabled in Obsidian."
+	},
+	"enableApiIntegration": {
+		"message": "Enable API integration"
+	},
+	"enableApiIntegrationDescription": {
+		"message": "Use the Obsidian Local REST API to save images directly to your vault."
+	},
+	"apiUseHttps": {
+		"message": "Use HTTPS"
+	},
+	"apiUseHttpsDescription": {
+		"message": "Use HTTPS instead of HTTP for the API connection. Required if the plugin is configured to use HTTPS."
+	},
+	"apiBaseUrl": {
+		"message": "API Endpoint URL"
+	},
+	"apiBaseUrlDescription": {
+		"message": "The complete endpoint URL (e.g., https://localhost:27124)."
+	},
+	"apiAuthToken": {
+		"message": "Auth Token (required)"
+	},
+	"apiAuthTokenDescription": {
+		"message": "Bearer token for authentication. Required for API access."
+	},
+	"apiAuthTokenRequired": {
+		"message": "Auth token is required"
+	},
+	"certificateError": {
+		"message": "Certificate Error - Please ensure the plugin uses valid TLS certificates"
+	},
+	"connectionTimeout": {
+		"message": "Connection timeout"
+	},
+	"networkError": {
+		"message": "Network error - Check if Obsidian is running"
+	},
+	"apiConnectionSuccess": {
+		"message": "API connection test successful!"
+	},
+	"testApiConnection": {
+		"message": "Test connection"
+	},
+	"testApiConnectionDescription": {
+		"message": "Verify that the API is accessible with the current settings."
+	},
+	"testing": {
+		"message": "Testing..."
+	},
+	"success": {
+		"message": "Success!"
+	},
+	"failed": {
+		"message": "Failed"
 	}
 }

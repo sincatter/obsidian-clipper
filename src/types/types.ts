@@ -1,16 +1,3 @@
-export interface Template {
-	id: string;
-	name: string;
-	behavior: 'create' | 'append-specific' | 'append-daily' | 'prepend-specific' | 'prepend-daily' | 'overwrite';
-	noteNameFormat: string;
-	path: string;
-	noteContentFormat: string;
-	properties: Property[];
-	triggers?: string[];
-	vault?: string;
-	context?: string;
-}
-
 export interface Property {
 	id?: string;
 	name: string;
@@ -50,7 +37,7 @@ export interface Rating {
 	date: string;
 }
 
-export type SaveBehavior = 'addToObsidian' | 'saveFile' | 'copyToClipboard';
+export type SaveBehavior = 'addToObsidian' | 'saveFile' | 'copyToClipboard' | 'saveSilently';
 
 export interface ReaderSettings {
 	fontSize: number;
@@ -80,13 +67,14 @@ export interface Settings {
 	readerSettings: ReaderSettings;
 	stats: {
 		addToObsidian: number;
+		saveSilently: number;
 		saveFile: number;
 		copyToClipboard: number;
 		share: number;
 	};
 	history: HistoryEntry[];
 	ratings: Rating[];
-	saveBehavior: 'addToObsidian' | 'saveFile' | 'copyToClipboard';
+	saveBehavior: 'addToObsidian' | 'saveFile' | 'copyToClipboard' | 'saveSilently';
 }
 
 export interface ModelConfig {
@@ -100,7 +88,7 @@ export interface ModelConfig {
 export interface HistoryEntry {
 	datetime: string;
 	url: string;
-	action: 'addToObsidian' | 'saveFile' | 'copyToClipboard' | 'share';
+	action: 'addToObsidian' | 'saveFile' | 'copyToClipboard' | 'saveSilently' | 'share';
 	title?: string;
 	vault?: string;
 	path?: string;
@@ -126,4 +114,29 @@ export interface ConversationMetadata {
 export interface Footnote {
 	url: string;
 	text: string;
+}
+
+export interface ImageDownloadSettings {
+	enabled: boolean;
+	attachmentFolder: string;
+	fileNameFormat: string;
+	maxImages?: number;
+	minWidth?: number;
+	minHeight?: number;
+	apiBaseUrl: string;
+	apiAuthToken?: string;
+}
+
+export interface Template {
+	id: string;
+	name: string;
+	behavior: 'create' | 'append-specific' | 'append-daily' | 'prepend-specific' | 'prepend-daily' | 'overwrite';
+	noteNameFormat: string;
+	path: string;
+	noteContentFormat: string;
+	properties: Property[];
+	triggers?: string[];
+	vault?: string;
+	context?: string;
+	imageDownload?: ImageDownloadSettings;
 }

@@ -1,6 +1,7 @@
-import { Template, Property } from '../types/types';
+import { Template, Property, ImageDownloadSettings } from '../types/types';
 import { deleteTemplate, templates, editingTemplateIndex, saveTemplateSettings, setEditingTemplateIndex, loadTemplates } from './template-manager';
 import { initializeIcons, getPropertyTypeIcon } from '../icons/icons';
+import { updateToggleState, initializeToggles } from '../utils/ui-utils';
 import { escapeValue, unescapeValue } from '../utils/string-utils';
 import { generalSettings } from '../utils/storage-utils';
 import { updateUrl } from '../utils/routing';
@@ -11,6 +12,7 @@ import { showSettingsSection } from './settings-section-ui';
 import { updatePropertyType } from './property-types-manager';
 import { getMessage } from '../utils/i18n';
 import { parse, validateVariables, validateFilters } from '../utils/parser';
+import { checkObsidianApiAvailable } from '../utils/image-downloader';
 let hasUnsavedChanges = false;
 
 export function resetUnsavedChanges(): void {
@@ -218,6 +220,12 @@ export function showTemplateEditor(template: Template | null): void {
 
 	const triggersTextarea = document.getElementById('url-patterns') as HTMLTextAreaElement;
 	if (triggersTextarea) triggersTextarea.value = editingTemplate && editingTemplate.triggers ? editingTemplate.triggers.join('\n') : '';
+
+	// Initialize image download settings
+	initializeImageDownloadSettings(editingTemplate);
+
+	// Initialize toggles for the template editor area
+	initializeToggles('template-settings-form');
 
 	showSettingsSection('templates', editingTemplate.id);
 
@@ -544,6 +552,9 @@ export function updateTemplateFromForm(): void {
 	const vaultSelect = document.getElementById('template-vault') as HTMLSelectElement;
 	if (vaultSelect) template.vault = vaultSelect.value || undefined;
 
+	// Save image download settings
+	saveImageDownloadSettings(template);
+
 	hasUnsavedChanges = true;
 }
 
@@ -777,4 +788,264 @@ export function initializeTemplateValidation(): void {
 	// Prompt context (multiline, show line numbers)
 	const promptContext = document.getElementById('prompt-context') as HTMLTextAreaElement;
 	addValidationListener(promptContext, true);
+}
+
+/**
+ * 初始化图片下载设置 UI
+ */
+function initializeImageDownloadSettings(template: Template): void {
+	const imageDownloadToggle = document.getElementById('image-download-toggle') as HTMLInputElement;
+	const attachmentFolder = document.getElementById('attachment-folder') as HTMLInputElement;
+	const fileNameFormat = document.getElementById('file-name-format') as HTMLInputElement;
+	const maxImages = document.getElementById('max-images') as HTMLInputElement;
+	const minImageSize = document.getElementById('min-image-size') as HTMLInputElement;
+
+	// API 设置
+	const apiBaseUrl = document.getElementById('api-base-url') as HTMLInputElement;
+	const apiAuthToken = document.getElementById('api-auth-token') as HTMLInputElement;
+
+	console.log('初始化图片下载设置，template.imageDownload:', template.imageDownload);
+
+	const settings = template.imageDownload || {
+		enabled: false,
+		attachmentFolder: 'attachments',
+		fileNameFormat: '{note}-{index}',
+		maxImages: 50,
+		minWidth: 10,
+		minHeight: 10,
+		apiBaseUrl: 'https://localhost:27124',
+		apiAuthToken: ''
+	};
+
+	console.log('使用设置:', settings);
+	console.log('checkbox 将设置为:', settings.enabled || false);
+
+	if (imageDownloadToggle) {
+		imageDownloadToggle.checked = settings.enabled || false;
+		// 同步更新 checkbox-container 的 UI 状态
+		const container = imageDownloadToggle.closest('.checkbox-container');
+		if (container) {
+			updateToggleState(container as HTMLElement, imageDownloadToggle);
+		}
+	}
+	if (attachmentFolder) attachmentFolder.value = settings.attachmentFolder || 'attachments';
+	if (fileNameFormat) fileNameFormat.value = settings.fileNameFormat || '{note}-{index}';
+	if (maxImages) maxImages.value = String(settings.maxImages || 50);
+	if (minImageSize) minImageSize.value = String(settings.minWidth || 10);
+
+	// API 设置
+	if (apiBaseUrl) apiBaseUrl.value = settings.apiBaseUrl || 'https://localhost:27124';
+	if (apiAuthToken) apiAuthToken.value = settings.apiAuthToken || '';
+
+	// 添加复选框监听器
+	if (imageDownloadToggle) {
+		imageDownloadToggle.onchange = () => {
+			const newChecked = imageDownloadToggle.checked;
+			console.log('checkbox change 事件，新状态:', newChecked);
+			updateImageDownloadSettingsVisibility(newChecked);
+		};
+		// 初始化时调用一次以设置正确的可见性
+		updateImageDownloadSettingsVisibility(imageDownloadToggle.checked);
+	}
+
+	// URL 输入时自动验证格式
+	if (apiBaseUrl) {
+		apiBaseUrl.onblur = () => {
+			validateApiUrl(apiBaseUrl.value, apiBaseUrl);
+		};
+	}
+
+	// 测试 API 按钮
+	const apiTestBtn = document.getElementById('api-test-btn');
+	if (apiTestBtn) {
+		(apiTestBtn as HTMLButtonElement).onclick = () => {
+			void testApiConnection();
+		};
+		// 翻译后存储初始按钮文本
+		setTimeout(() => {
+			apiTestBtn.setAttribute('data-original-text', apiTestBtn.textContent || 'Test');
+		}, 100);
+	}
+}
+
+/**
+ * 验证 API URL 格式
+ */
+function validateApiUrl(url: string, input?: HTMLInputElement): boolean {
+	if (!url || url.trim() === '') {
+		if (input) {
+			input.classList.add('mod-warning');
+			showUrlValidationError(input, 'URL 不能为空');
+		}
+		return false;
+	}
+
+	// URL 格式验证正则
+	const urlPattern = /^https?:\/\/(localhost|[\d\w\.-]+)(:[\d]+)?(\/.*)?$/i;
+
+	if (!urlPattern.test(url)) {
+		if (input) {
+			input.classList.add('mod-warning');
+			showUrlValidationError(input, 'URL 格式不正确，应为 http(s)://hostname:port 格式');
+		}
+		return false;
+	}
+
+	if (input) {
+		input.classList.remove('mod-warning');
+		hideUrlValidationError(input);
+	}
+	return true;
+}
+
+/**
+ * 显示 URL 验证错误
+ */
+function showUrlValidationError(input: HTMLInputElement, message: string): void {
+	const validationEl = document.getElementById(`${input.id}-validation`);
+	if (validationEl) {
+		validationEl.textContent = message;
+		validationEl.style.display = 'block';
+	}
+}
+
+/**
+ * 隐藏 URL 验证错误
+ */
+function hideUrlValidationError(input: HTMLInputElement): void {
+	const validationEl = document.getElementById(`${input.id}-validation`);
+	if (validationEl) {
+		validationEl.textContent = '';
+		validationEl.style.display = 'none';
+	}
+}
+
+/**
+ * 测试 API 连接
+ */
+async function testApiConnection(): Promise<void> {
+	const apiBaseUrl = document.getElementById('api-base-url') as HTMLInputElement;
+	const apiAuthToken = document.getElementById('api-auth-token') as HTMLInputElement;
+	const apiTestBtn = document.getElementById('api-test-btn') as HTMLButtonElement;
+
+	if (!apiTestBtn) return;
+
+	// 验证认证令牌是否必填
+	if (!apiAuthToken?.value || apiAuthToken.value.trim() === '') {
+		alert(getMessage('apiAuthTokenRequired') || '认证令牌是必填项');
+		apiAuthToken?.focus();
+		return;
+	}
+
+	// 验证 URL 格式
+	if (!validateApiUrl(apiBaseUrl?.value?.trim() || '', apiBaseUrl || undefined)) {
+		return;
+	}
+
+	// 存储原始文本
+	const originalText = apiTestBtn.getAttribute('data-original-text') || 'Test';
+	apiTestBtn.setAttribute('data-original-text', originalText);
+
+	// 设置测试状态
+	apiTestBtn.textContent = getMessage('testing') || 'Testing...';
+	apiTestBtn.disabled = true;
+	apiTestBtn.classList.remove('mod-success', 'mod-warning');
+
+	const baseUrl = apiBaseUrl?.value?.trim() || '';
+	const authToken = apiAuthToken?.value || '';
+
+	try {
+		const available = await checkObsidianApiAvailable({
+			baseUrl,
+			authToken
+		});
+
+		if (available) {
+			apiTestBtn.textContent = getMessage('success') || 'Success!';
+			apiTestBtn.classList.add('mod-success');
+			// 测试成功，弹出提示框
+			setTimeout(() => {
+				alert(getMessage('apiConnectionSuccess') || 'API 连接测试成功！');
+				apiTestBtn.textContent = originalText;
+				apiTestBtn.disabled = false;
+				apiTestBtn.classList.remove('mod-success');
+			}, 100);
+		} else {
+			throw new Error('Authentication failed');
+		}
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		let displayMessage = getMessage('failed') || 'Failed';
+
+		// 检查证书错误
+		if (errorMessage.includes('ERR_CERT') || errorMessage.includes('certificate')) {
+			displayMessage = getMessage('certificateError') || '证书错误 - 请确保插件使用有效的 TLS 证书';
+		} else if (errorMessage.includes('timeout') || errorMessage.includes('AbortError')) {
+			displayMessage = getMessage('connectionTimeout') || '连接超时';
+		} else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+			displayMessage = getMessage('networkError') || '网络错误 - 请检查 Obsidian 是否正在运行';
+		}
+
+		apiTestBtn.textContent = displayMessage;
+		apiTestBtn.classList.add('mod-warning');
+		// 失败后允许再次点击重试
+		apiTestBtn.disabled = false;
+
+		console.error('API 连接测试失败:', error);
+	}
+}
+
+/**
+ * 根据复选框更新图片下载设置的可见性
+ */
+function updateImageDownloadSettingsVisibility(enabled: boolean): void {
+	const containers = [
+		'attachment-folder-container',
+		'file-name-format-container',
+		'max-images-container',
+		'min-image-size-container'
+	];
+
+	containers.forEach(id => {
+		const el = document.getElementById(id);
+		if (el) {
+			const settingItem = el.closest('.setting-item') || el;
+			settingItem.setAttribute('style', enabled ? '' : 'display: none;');
+		}
+	});
+
+	// 同时控制 API 设置容器的可见性
+	const apiSettingsContainer = document.getElementById('api-settings-container');
+	if (apiSettingsContainer) {
+		apiSettingsContainer.setAttribute('style', enabled ? '' : 'display: none;');
+	}
+}
+
+/**
+ * 从 UI 保存图片下载设置
+ */
+function saveImageDownloadSettings(template: Template): void {
+	const imageDownloadToggle = document.getElementById('image-download-toggle') as HTMLInputElement;
+	const attachmentFolder = document.getElementById('attachment-folder') as HTMLInputElement;
+	const fileNameFormat = document.getElementById('file-name-format') as HTMLInputElement;
+	const maxImages = document.getElementById('max-images') as HTMLInputElement;
+	const minImageSize = document.getElementById('min-image-size') as HTMLInputElement;
+
+	// API 设置
+	const apiBaseUrl = document.getElementById('api-base-url') as HTMLInputElement;
+	const apiAuthToken = document.getElementById('api-auth-token') as HTMLInputElement;
+
+	const newSettings = {
+		enabled: imageDownloadToggle?.checked || false,
+		attachmentFolder: attachmentFolder?.value || 'attachments',
+		fileNameFormat: fileNameFormat?.value || '{note}-{index}',
+		maxImages: parseInt(maxImages?.value || '50', 10),
+		minWidth: parseInt(minImageSize?.value || '10', 10),
+		minHeight: parseInt(minImageSize?.value || '10', 10),
+		apiBaseUrl: apiBaseUrl?.value || 'https://localhost:27124',
+		apiAuthToken: apiAuthToken?.value || ''
+	};
+
+	console.log('保存图片下载设置:', newSettings);
+	template.imageDownload = newSettings;
 }

@@ -41,6 +41,29 @@ export function initializeAutoSave(): void {
 		}
 	});
 
+	// 监听图片下载设置相关的 change 事件（如 checkbox、number 输入等）
+	templateForm.addEventListener('change', (event) => {
+		const target = event.target as HTMLElement;
+		// 检查是否是图片下载设置相关的字段
+		const imageDownloadFields = [
+			'image-download-toggle',
+			'attachment-folder',
+			'file-name-format',
+			'max-images',
+			'min-image-size',
+			'api-base-url',
+			'api-auth-token'
+		];
+		if (imageDownloadFields.includes(target.id)) {
+			console.log('图片下载设置变化:', target.id, 'editingTemplateIndex:', editingTemplateIndex);
+			if (editingTemplateIndex !== -1) {
+				updateTemplateFromForm();
+				console.log('已调用 updateTemplateFromForm，准备自动保存...');
+				autoSave();
+			}
+		}
+	});
+
 	const templateProperties = document.getElementById('template-properties');
 	if (templateProperties) {
 		templateProperties.addEventListener('click', (event) => {

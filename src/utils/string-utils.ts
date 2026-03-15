@@ -179,7 +179,7 @@ export function getDomain(url: string): string {
 		}
 
 		const hostParts = hostname.split('.');
-		
+
 		// Handle special cases like co.uk, com.au, etc.
 		if (hostParts.length > 2) {
 			const lastTwo = hostParts.slice(-2).join('.');
@@ -187,10 +187,86 @@ export function getDomain(url: string): string {
 				return hostParts.slice(-3).join('.');
 			}
 		}
-		
+
 		return hostParts.slice(-2).join('.');
 	} catch (error) {
 		console.warn('Invalid URL:', url);
 		return '';
 	}
+}
+
+export function sanitizeImageFileName(fileName: string, index: number = 0, timestamp: number = Date.now()): string {
+	// Remove query parameters and hash
+	const cleanUrl = fileName.split('?')[0].split('#')[0];
+
+	// Extract filename from URL
+	let name = cleanUrl.substring(cleanUrl.lastIndexOf('/') + 1);
+
+	// Remove or replace invalid characters for Obsidian
+	name = name.replace(/[#|\^\[\]]/g, '');
+
+	// Remove query parameters that might have slipped through
+	name = name.replace(/[?#].*$/, '');
+
+	// Decode URL-encoded characters
+	try {
+		name = decodeURIComponent(name);
+	} catch (e) {
+		// If decoding fails, use the original name
+	}
+
+	// Remove or replace invalid filename characters
+	name = name
+		.replace(/[<>:"\/\\|?*]/g, '-')  // Replace invalid characters with dash
+		.replace(/[\x00-\x1F\x7F]/g, '')  // Remove control characters
+		.replace(/^\s+|\s+$/g, '')  // Trim whitespace
+		.replace(/\s+/g, '-');  // Replace spaces with dashes
+
+	// Ensure we have a valid extension
+	const validExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.avif'];
+	let hasValidExtension = false;
+	const lowerName = name.toLowerCase();
+
+	for (const ext of validExtensions) {
+		if (lowerName.endsWith(ext)) {
+			hasValidExtension = true;
+			break;
+		}
+	}
+
+	if (!hasValidExtension) {
+		// Try to extract extension from original URL
+		const urlExtension = cleanUrl.toLowerCase().match(/\.(png|jpg|jpeg|gif|webp|svg|bmp|avif)(?:[?#]|$)/);
+		if (urlExtension) {
+			name += '.' + urlExtension[1];
+		} else {
+			// Default to png
+			name += '.png';
+		}
+	}
+
+	// Add index and timestamp to avoid conflicts
+	const lastDotIndex = name.lastIndexOf('.');
+	const baseName = lastDotIndex > 0 ? name.substring(0, lastDotIndex) : name;
+	const extension = lastDotIndex > 0 ? name.substring(lastDotIndex) : '.png';
+
+	// Limit filename length
+	const maxBaseLength = 200 - extension.length - String(index).length - String(timestamp).length - 2;
+	const truncatedBase = baseName.substring(0, Math.max(1, maxBaseLength));
+
+	return `${truncatedBase}-${index}-${timestamp}${extension}`;
+}
+
+export function extractImageExtension(url: string): string {
+	const cleanUrl = url.split('?')[0].split('#')[0];
+	const extension = cleanUrl.match(/\.(\w+)(?:[?#]|$)/);
+
+	if (extension && extension[1]) {
+		const ext = extension[1].toLowerCase();
+		if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) {
+			return '.' + ext;
+		}
+	}
+
+	return '.png'; // Default extension
 }

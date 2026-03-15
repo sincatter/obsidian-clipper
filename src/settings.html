@@ -172,6 +172,7 @@
 									<div class="setting-item-control">
 										<select id="save-behavior-dropdown">
 											<option value="addToObsidian" selected data-i18n="addToObsidian">Add to Obsidian</option>
+											<option value="saveSilently" data-i18n="saveSilently">Save silently in background</option>
 											<option value="copyToClipboard" data-i18n="copyToClipboard">Copy to clipboard</option>
 											<option value="saveFile" data-i18n="saveFile">Save file</option>
 										</select>
@@ -504,7 +505,7 @@
 								<div class="setting-item" id="path-name-container" style="display: none;">
 									<label for="template-path-name" data-i18n="noteLocation">Note location</label>
 									<div class="setting-item-description" data-i18n="noteLocationDescription">The folder or path of the note.</div>
-									<input type="text" id="template-path-name" placeholder="Clippings" />
+									<input type="text" id="template-path-name" placeholder="Clippings" data-i18n-placeholder="clippingsPlaceholder" />
 								</div>
 								<div class="setting-item">
 									<label for="template-vault" data-i18n="vault">Vault</label>
@@ -535,6 +536,72 @@
 									<label for="prompt-context" data-i18n="interpreterContext">Interpreter context</label>
 									<div class="setting-item-description" data-i18n="interpreterContextDescription">The context used to interpret prompt variables. Overrides the default context defined in Interpreter settings. Variables can be used here.</div>
 									<textarea id="prompt-context" rows="4" spellcheck="false"></textarea>
+								</div>
+								<div class="setting-item-group" style="margin-top: 1.5rem;">
+									<h3 style="margin-bottom: 1rem;" data-i18n="attachmentSettings">Attachment settings</h3>
+									<div class="setting-item-description" style="margin-bottom: 1rem;" data-i18n="enableImageDownloadDescription">
+										Download images from web pages and save them to your Obsidian vault using <a href="https://github.com/coddingtonbear/obsidian-local-rest-api" target="_blank">obsidian-local-rest-api</a>. Make sure the plugin is installed and enabled in Obsidian.
+									</div>
+									<div class="setting-item mod-horizontal">
+										<div class="setting-item-info">
+											<label for="image-download-toggle" data-i18n="enableImageDownload">Enable image download</label>
+											<div class="setting-item-description" data-i18n="enableImageDownloadDescription">
+												Download images and save them via Local REST API.
+											</div>
+										</div>
+										<div class="setting-item-control">
+											<div class="checkbox-container">
+												<input type="checkbox" id="image-download-toggle" />
+											</div>
+										</div>
+									</div>
+									<div class="api-settings" id="api-settings-container" style="display: none;">
+										<div class="setting-item" id="attachment-folder-container">
+											<label for="attachment-folder" data-i18n="attachmentFolder">Attachment folder</label>
+											<div class="setting-item-description" data-i18n="attachmentFolderDescription">The folder where images will be saved. Supports variables like {note}.</div>
+											<input type="text" id="attachment-folder" placeholder="attachments" />
+										</div>
+										<div class="setting-item" id="file-name-format-container">
+											<label for="file-name-format" data-i18n="fileNameFormat">File name format</label>
+											<div class="setting-item-description" data-i18n="fileNameFormatDescription">Format for image file names. Available placeholders: {note}, {index}, {timestamp}, {date}</div>
+											<input type="text" id="file-name-format" placeholder="{note}-{index}" />
+										</div>
+										<div class="setting-item" id="max-images-container">
+											<label for="max-images" data-i18n="maxImages">Maximum images</label>
+											<div class="setting-item-description" data-i18n="maxImagesDescription">Limit the number of images downloaded per page to avoid excessive downloads.</div>
+											<input type="number" id="max-images" min="1" max="100" placeholder="50" />
+										</div>
+										<div class="setting-item mod-horizontal" id="min-image-size-container">
+											<div class="setting-item-info">
+												<label for="min-image-size" data-i18n="minImageSize">Minimum image size</label>
+												<div class="setting-item-description" data-i18n="minImageSizeDescription">Filter out images smaller than this size (in pixels) to exclude icons and tracking pixels.</div>
+											</div>
+											<div class="setting-item-control">
+												<input type="number" id="min-image-size" min="1" max="1000" placeholder="10" style="width: 80px;" />
+												<span style="margin-left: 0.5rem;">px</span>
+											</div>
+										</div>
+										<div class="setting-item" style="margin-top: 1rem; border-top: 1px solid var(--background-modifier-border); padding-top: 1rem;">
+											<label for="api-base-url" data-i18n="apiBaseUrl">API Endpoint URL</label>
+											<div class="setting-item-description" data-i18n="apiBaseUrlDescription">The complete endpoint URL (e.g., https://localhost:27124).</div>
+											<input type="text" id="api-base-url" placeholder="https://localhost:27124" />
+											<div class="validation-error" id="api-base-url-validation" style="display: none;"></div>
+										</div>
+										<div class="setting-item">
+											<label for="api-auth-token" data-i18n="apiAuthToken">Auth Token (required)</label>
+											<div class="setting-item-description" data-i18n="apiAuthTokenDescription">Bearer token for authentication. Required for API access.</div>
+											<input type="password" id="api-auth-token" placeholder="" required />
+										</div>
+										<div class="setting-item mod-horizontal">
+											<div class="setting-item-info">
+												<label for="api-test-btn" data-i18n="testApiConnection">Test connection</label>
+												<div class="setting-item-description" data-i18n="testApiConnectionDescription">Verify that the API is accessible with the current settings.</div>
+											</div>
+											<div class="setting-item-control">
+												<button type="button" id="api-test-btn" data-i18n="testApiConnection">Test</button>
+											</div>
+										</div>
+									</div>
 								</div>
 							</div>
 						</form>

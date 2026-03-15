@@ -33,6 +33,7 @@ export async function loadTemplates(): Promise<Template[]> {
 					if (compressedChunks) {
 						const decompressedData = decompressFromUTF16(compressedChunks.join(''));
 						const template = JSON.parse(decompressedData);
+						console.log('从存储加载模板:', template.name, 'imageDownload:', template.imageDownload);
 						if (template && Array.isArray(template.properties)) {
 							return template;
 						}
@@ -73,7 +74,9 @@ export async function saveTemplateSettings(): Promise<string[]> {
 	const warnings: string[] = [];
 	const templateChunks: { [key: string]: string[] } = {};
 
+	console.log('开始保存模板设置，模板数量:', templates.length);
 	for (const template of templates) {
+		console.log('模板:', template.name, 'imageDownload:', template.imageDownload);
 		if (!template.noteNameFormat || template.noteNameFormat.trim() === '') {
 			warnings.push(`Warning: Template "${template.name}" has an empty note name format. Using default "{{title}}".`);
 			template.noteNameFormat = '{{title}}';
@@ -88,7 +91,7 @@ export async function saveTemplateSettings(): Promise<string[]> {
 
 	try {
 		await browser.storage.sync.set({ ...templateChunks, [TEMPLATE_LIST_KEY]: templateIds });
-		console.log('Template settings saved');
+		console.log('Template settings saved to storage');
 		return warnings;
 	} catch (error) {
 		console.error('Error saving templates:', error);
@@ -128,7 +131,17 @@ export function createDefaultTemplate(): Template {
 			{ id: Date.now().toString() + Math.random().toString(36).slice(2, 11), name: 'description', value: '{{description}}' },
 			{ id: Date.now().toString() + Math.random().toString(36).slice(2, 11), name: 'tags', value: 'clippings' }
 		],
-		triggers: []
+		triggers: [],
+		imageDownload: {
+			enabled: false,
+			attachmentFolder: 'attachments',
+			fileNameFormat: '{note}-{index}',
+			maxImages: 50,
+			minWidth: 10,
+			minHeight: 10,
+			apiBaseUrl: 'https://localhost:27124',
+			apiAuthToken: ''
+		}
 	};
 }
 

@@ -114,6 +114,9 @@
 	"close": {
 		"message": "关闭"
 	},
+	"clippingsPlaceholder": {
+		"message": "Clippings"
+	},
 	"commandOpenClipper": {
 		"message": "打开 Obsidian 剪藏器"
 	},
@@ -208,6 +211,9 @@
 	},
 	"embedded": {
 		"message": "嵌入式"
+	},
+	"embeddedMode": {
+		"message": "关闭嵌入模式"
 	},
 	"enableHighlighter": {
 		"message": "启用高亮"
@@ -502,6 +508,9 @@
 	"noteNameFormat": {
 		"message": "笔记名称"
 	},
+	"noteSaved": {
+		"message": "笔记已保存！"
+	},
 	"noteNameFormatDescription": {
 		"message": "笔记文件名的格式。您可以使用 {{title}}、{{date}} 和 {{published}} 等变量预填充页面数据。$link_start$了解更多$link_end$",
 		"placeholders": {
@@ -708,6 +717,9 @@
 	"saveFile": {
 		"message": "保存文件..."
 	},
+	"saveSilently": {
+		"message": "后台静默保存"
+	},
 	"searchVariables": {
 		"message": "搜索变量..."
 	},
@@ -849,5 +861,98 @@
 	},
 	"version": {
 		"message": "版本"
+	},
+	"attachmentSettings": {
+		"message": "附件设置"
+	},
+	"enableImageDownload": {
+		"message": "下载图片"
+	},
+	"enableImageDownloadDescription": {
+		"message": "从网页下载图片并保存到本地。图片将使用 Obsidian 内部链接格式嵌入。"
+	},
+	"attachmentFolder": {
+		"message": "附件目录"
+	},
+	"attachmentFolderDescription": {
+		"message": "图片保存的文件夹。支持变量，如 {note}。"
+	},
+	"fileNameFormat": {
+		"message": "文件名格式"
+	},
+	"fileNameFormatDescription": {
+		"message": "图片文件名的格式。可用占位符：{note}、{index}、{timestamp}、{date}"
+	},
+	"maxImages": {
+		"message": "最大图片数量"
+	},
+	"maxImagesDescription": {
+		"message": "限制每个页面下载的图片数量，避免过度下载。"
+	},
+	"minImageSize": {
+		"message": "最小图片尺寸"
+	},
+	"minImageSizeDescription": {
+		"message": "过滤小于此尺寸（像素）的图片，排除图标和追踪像素。"
+	},
+	"obsidianApiSettings": {
+		"message": "Obsidian Local REST API"
+	},
+	"obsidianApiDescription": {
+		"message": "使用 <a href=\"https://github.com/coddingtonbear/obsidian-local-rest-api\" target=\"_blank\">obsidian-local-rest-api</a> 插件将图片直接保存到 Obsidian 保管库。请确保已在 Obsidian 中安装并启用该插件。"
+	},
+	"enableApiIntegration": {
+		"message": "启用 API 集成"
+	},
+	"enableApiIntegrationDescription": {
+		"message": "使用 Obsidian Local REST API 将图片直接保存到保管库。"
+	},
+	"apiUseHttps": {
+		"message": "使用 HTTPS"
+	},
+	"apiUseHttpsDescription": {
+		"message": "使用 HTTPS 而不是 HTTP 进行 API 连接。如果插件配置为使用 HTTPS，则需要此项。"
+	},
+	"apiBaseUrl": {
+		"message": "API 端点 URL"
+	},
+	"apiBaseUrlDescription": {
+		"message": "完整的端点 URL（例如：https://localhost:27124）。"
+	},
+	"apiAuthToken": {
+		"message": "认证令牌（必填）"
+	},
+	"apiAuthTokenDescription": {
+		"message": "用于 API 访问的 Bearer 令牌。访问 API 必须要有此项。"
+	},
+	"apiAuthTokenRequired": {
+		"message": "认证令牌是必填项"
+	},
+	"certificateError": {
+		"message": "证书错误 - 请确保插件使用有效的 TLS 证书"
+	},
+	"connectionTimeout": {
+		"message": "连接超时"
+	},
+	"networkError": {
+		"message": "网络错误 - 请检查 Obsidian 是否正在运行"
+	},
+	"apiConnectionSuccess": {
+		"message": "API 连接测试成功！"
+	},
+	"testApiConnection": {
+		"message": "测试连接"
+	},
+	"testApiConnectionDescription": {
+		"message": "验证 API 是否可以使用当前设置访问。"
+	},
+	"testing": {
+		"message": "测试中..."
+	},
+	"success": {
+		"message": "成功！"
+	},
+	"failed": {
+		"message": "失败"
 	}
 }

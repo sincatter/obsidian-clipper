@@ -1,4 +1,4 @@
-import { ExtractedContent } from '../types/types';
+import { ExtractedContent, ImageDownloadSettings } from '../types/types';
 import { createMarkdownContent } from 'defuddle/full';
 import { sanitizeFileName, getDomain } from './string-utils';
 import browser from './browser-polyfill';
@@ -6,11 +6,21 @@ import { debugLog } from './debug';
 import dayjs from 'dayjs';
 import { AnyHighlightData, TextHighlightData, HighlightData } from './highlighter';
 import { generalSettings } from './storage-utils';
-import { 
+import {
 	getElementByXPath,
 	wrapElementWithMark,
-	wrapTextWithMark 
+	wrapTextWithMark
 } from './dom-utils';
+import {
+	extractImagesFromHtml,
+	filterImages,
+	downloadImages,
+	replaceImagesInMarkdown,
+	DownloadedImage,
+	ImageExtractionResult
+} from './image-downloader';
+
+export { DownloadedImage, ImageExtractionResult };
 
 // Define ElementHighlightData type inline since it's not exported from highlighter.ts
 interface ElementHighlightData extends HighlightData {
@@ -114,12 +124,15 @@ export async function initializePageContent(
 	site: string,
 	wordCount: number,
 	language: string,
-	metaTags: { name?: string | null; property?: string | null; content: string | null }[]
+	metaTags: { name?: string | null; property?: string | null; content: string | null }[],
+	imageDownloadSettings?: ImageDownloadSettings
 ) {
 	try {
 		currentUrl = currentUrl.replace(/#:~:text=[^&]+(&|$)/, '');
 
 		let selectedMarkdown = '';
+		let downloadedImages: DownloadedImage[] = [];
+
 		if (selectedHtml) {
 			content = selectedHtml;
 			selectedMarkdown = createMarkdownContent(selectedHtml, currentUrl);
@@ -127,12 +140,64 @@ export async function initializePageContent(
 
 		const noteName = sanitizeFileName(title);
 
+		debugLog('ImageDownload', '图片下载设置:', JSON.stringify(imageDownloadSettings));
+
 		// Process highlights after getting the base content
 		if (generalSettings.highlighterEnabled && generalSettings.highlightBehavior !== 'no-highlights' && highlights && highlights.length > 0) {
 			content = processHighlights(content, highlights);
 		}
 
+		// Download images if enabled
+		if (imageDownloadSettings?.enabled) {
+			try {
+				debugLog('ImageDownload', 'Starting image download process');
+
+				// Extract images from HTML
+				const extractedImages = extractImagesFromHtml(content, currentUrl);
+
+				if (extractedImages.length > 0) {
+					// Filter images based on settings
+					const filteredImages = filterImages(extractedImages, imageDownloadSettings);
+
+					if (filteredImages.length > 0) {
+						// Download images
+						const result = await downloadImages(
+							filteredImages,
+							imageDownloadSettings,
+							noteName,
+							5 // concurrency
+						);
+
+						if (result.images.length > 0) {
+							downloadedImages = result.images;
+							debugLog('ImageDownload', `Successfully downloaded ${result.images.length} images`);
+						}
+
+						if (result.errors.length > 0) {
+							console.warn(`Failed to download ${result.errors.length} images:`, result.errors);
+						}
+					} else {
+						debugLog('ImageDownload', 'No images passed filters');
+					}
+				} else {
+					debugLog('ImageDownload', 'No images found in content');
+				}
+			} catch (error) {
+				console.error('Error downloading images:', error);
+			}
+		}
+
+		// Convert HTML to Markdown
 		const markdownBody = createMarkdownContent(content, currentUrl);
+
+		debugLog('ImageDownload', 'Defuddle 输出的 Markdown 预览:', markdownBody.substring(0, 2000));
+
+		// Replace remote image links with local Obsidian links in Markdown
+		let finalMarkdownBody = markdownBody.trim();
+		if (downloadedImages.length > 0) {
+			finalMarkdownBody = replaceImagesInMarkdown(finalMarkdownBody, downloadedImages);
+			debugLog('ImageDownload', `在 Markdown 中替换了 ${downloadedImages.length} 张图片`);
+		}
 
 		// Convert each highlight to markdown individually and create an object with text, timestamp, and notes (if not empty)
 		const highlightsData = highlights.map(highlight => {
@@ -154,7 +219,7 @@ export async function initializePageContent(
 
 		const currentVariables: { [key: string]: string } = {
 			'{{author}}': author.trim(),
-			'{{content}}': markdownBody.trim(),
+			'{{content}}': finalMarkdownBody,
 			'{{contentHtml}}': content.trim(),
 			'{{selection}}': selectedMarkdown.trim(),
 			'{{selectionHtml}}': selectedHtml.trim(),
@@ -203,7 +268,8 @@ export async function initializePageContent(
 
 		return {
 			noteName,
-			currentVariables
+			currentVariables,
+			downloadedImages
 		};
 	} catch (error: unknown) {
 		console.error('Error in initializePageContent:', error);

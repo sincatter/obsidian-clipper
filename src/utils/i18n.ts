@@ -227,6 +227,17 @@ export async function translatePage() {
 			element.setAttribute('title', getMessage(key));
 		}
 	});
+
+	// Translate elements with data-i18n-placeholder attribute
+	document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+		const key = element.getAttribute('data-i18n-placeholder');
+		if (key) {
+			const translation = getMessage(key);
+			if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+				element.setAttribute('placeholder', translation);
+			}
+		}
+	});
 }
 
 // Helper function to get the effective language

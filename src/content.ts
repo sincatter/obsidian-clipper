@@ -5,6 +5,7 @@ import Defuddle from 'defuddle';
 import { getDomain } from './utils/string-utils';
 import { createMarkdownContent } from 'defuddle/full';
 import { flattenShadowDom } from './utils/flatten-shadow-dom';
+import { getPreferredContentHtml } from './utils/content-source';
 
 declare global {
 	interface Window {
@@ -298,10 +299,11 @@ declare global {
 
 				// Get the modified HTML without scripts, styles, and style attributes
 				const cleanedHtml = doc.documentElement.outerHTML;
+				const preferredContent = getPreferredContentHtml(document.URL, defuddled.content, cleanedHtml);
 
 				const response: ContentResponse = {
 					author: defuddled.author,
-					content: defuddled.content,
+					content: preferredContent,
 					description: defuddled.description,
 					domain: getDomain(document.URL),
 					extractedContent: extractedContent,
